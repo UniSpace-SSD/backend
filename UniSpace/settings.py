@@ -49,9 +49,8 @@ INSTALLED_APPS = [
     'corsheaders',
 
     'drf_yasg',
-    'users.apps.UsersConfig',
-    'resources.apps.ResourcesConfig',
-    'bookings.apps.BookingsConfig'
+    'spaces.apps.SpacesConfig',
+    'reservations.apps.ReservationsConfig'
 ]
 
 MIDDLEWARE = [
