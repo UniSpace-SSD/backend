@@ -22,9 +22,10 @@ class CustomRegisterSerializer(RegisterSerializer):
 
     def save(self, request):
         user = super().save(request)
-        user.first_name = self.cleaned_data.get('first_name')
-        user.last_name = self.cleaned_data.get('last_name')
-        user.date_of_birth = self.cleaned_data.get('date_of_birth')
-        user.role = self.cleaned_data.get('role')
+        cleaned_data = self.get_cleaned_data()
+        user.first_name = cleaned_data.get('first_name')
+        user.last_name = cleaned_data.get('last_name')
+        user.date_of_birth = cleaned_data.get('date_of_birth')
+        user.role = cleaned_data.get('role')
         user.save()
         return user
