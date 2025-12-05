@@ -1,0 +1,9 @@
+[run]
+omit = 
+    .venv/*
+    */migrations/*
+    manage.py
+    */__init__.py
+    */asgi.py
+    */wsgi.py
+    */tests/*

@@ -6,6 +6,7 @@ from .serializers import (
     SpaceSerializer,
 )
 from .permissions import IsAdminOrReadOnly
+
 class BuildingViewSet(viewsets.ModelViewSet):
 
     queryset = Building.objects.all()

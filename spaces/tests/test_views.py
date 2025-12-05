@@ -3,6 +3,7 @@ from django.urls import reverse
 from rest_framework import status
 from django.contrib.auth import get_user_model
 from spaces.models import Building, Space, SpaceType
+from django.utils import timezone
 
 User = get_user_model()
 
@@ -11,13 +12,13 @@ class SpaceViewSetTest(APITestCase):
         self.building = Building.objects.create(name="Test Building", address="123 Test St")
         self.space = Space.objects.create(name="Test Room", building=self.building, capacity=10)
 
-        self.student = User.objects.create_user(username="student", email="student@test.com", password="password")
-        self.admin = User.objects.create_user(username="admin", email="admin@test.com", password="password",
+        self.student = User.objects.create_user(username="student", email="student@test.com", date_of_birth=timezone.now(), password="password")
+        self.admin = User.objects.create_user(username="admin", email="admin@test.com", date_of_birth=timezone.now(), password="password",
                                               is_staff=True)
 
         # Assuming standard router URLs
-        self.list_url = reverse('space-list')
-        self.detail_url = reverse('space-detail', args=[self.space.id])
+        self.list_url = reverse('spaces:space-list')
+        self.detail_url = reverse('spaces:space-detail', args=[self.space.id])
 
     def test_list_spaces_public(self):
         # Authenticated user can list
@@ -59,8 +60,8 @@ class SpaceViewSetTest(APITestCase):
     def test_update_space_admin(self):
         # Admin can update
         self.client.force_authenticate(user=self.admin)
-        data = {"name": "Updated Room"}
-        response = self.client.post(self.detail_url, data)
+        data = {"name": "Updated Room", "building_id": self.building.id, "capacity": self.space.capacity, "type": self.space.type}
+        response = self.client.put(self.detail_url, data)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.space.refresh_from_db()
         self.assertEqual(self.space.name, "Updated Room")

@@ -5,28 +5,32 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from datetime import timedelta
 from reservations.models import Reservation, ReservationStatus
+from reservations.views import ReservationViewSet
 from spaces.models import Space, Building
+from django.test import override_settings
+from django.conf import settings
+from rest_framework.pagination import PageNumberPagination
 
 User = get_user_model()
 
 
+class OnePerPagePagination(PageNumberPagination):
+    page_size = 1
+    
+
 class ReservationViewSetTest(APITestCase):
     def setUp(self):
-        self.building = Building.objects.create(name="Test Building", address="123 Test St")
-        self.space = Space.objects.create(name="Test Room", building=self.building, capacity=10)
+        self.building = Building.objects.create(name="Test Building", address="Via 123 Test")
+        self.space = Space.objects.create(name="Test Space", building=self.building, capacity=10)
 
-        self.student = User.objects.create_user(username="student", email="student@test.com", password="password")
-        self.admin = User.objects.create_user(username="admin", email="admin@test.com", password="password",
+        self.student = User.objects.create_user(username="student", email="student@test.com", date_of_birth=timezone.now(), password="password")
+        self.admin = User.objects.create_user(username="admin", email="admin@test.com", date_of_birth=timezone.now(), password="password",
                                               is_staff=True)
 
         self.future_start = timezone.now() + timedelta(days=1)
         self.future_end = self.future_start + timedelta(hours=1)
 
-        # URL for list/create is usually inferred from router, assuming standard router usage
-        # I'll assume /api/reservations/ or similar.
-        # Since I don't know the exact URL conf, I will use reverse if I can guess the name,
-        # or just assume standard router names 'reservation-list', 'reservation-detail'
-        self.list_url = reverse('reservation-list')
+        self.list_url = reverse('reservations:reservation-list')
 
     def test_create_reservation(self):
         self.client.force_authenticate(user=self.student)
@@ -42,7 +46,6 @@ class ReservationViewSetTest(APITestCase):
         self.assertEqual(Reservation.objects.get().created_by, self.student)
 
     def test_list_reservations(self):
-        # Create a reservation for student
         Reservation.objects.create(
             space=self.space,
             created_by=self.student,
@@ -50,19 +53,17 @@ class ReservationViewSetTest(APITestCase):
             end_at=self.future_end
         )
 
-        # Student sees their reservation
         self.client.force_authenticate(user=self.student)
         response = self.client.get(self.list_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)  # Pagination might wrap this in 'results'
-        # If paginated, response.data['results']
+        self.assertEqual(len(response.data), 1)  
+
         if 'results' in response.data:
             self.assertEqual(len(response.data['results']), 1)
         else:
             self.assertEqual(len(response.data), 1)
 
-        # Another user sees nothing
-        other_user = User.objects.create_user(username="other", email="other@test.com", password="password")
+        other_user = User.objects.create_user(username="other", email="other@test.com", date_of_birth=timezone.now(), password="password")
         self.client.force_authenticate(user=other_user)
         response = self.client.get(self.list_url)
         if 'results' in response.data:
@@ -70,7 +71,6 @@ class ReservationViewSetTest(APITestCase):
         else:
             self.assertEqual(len(response.data), 0)
 
-        # Admin sees all (if logic allows, views.py said "if user.is_staff: return qs")
         self.client.force_authenticate(user=self.admin)
         response = self.client.get(self.list_url)
         if 'results' in response.data:
@@ -86,10 +86,10 @@ class ReservationViewSetTest(APITestCase):
             end_at=self.future_end,
             status=ReservationStatus.PENDING
         )
-        url = reverse('reservation-cancel', args=[reservation.id])
+        url = reverse('reservations:reservation-cancel', args=[reservation.id])
 
         self.client.force_authenticate(user=self.student)
-        response = self.client.put(url)
+        response = self.client.patch(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         reservation.refresh_from_db()
         self.assertEqual(reservation.status, ReservationStatus.CANCELLED)
@@ -102,16 +102,105 @@ class ReservationViewSetTest(APITestCase):
             end_at=self.future_end,
             status=ReservationStatus.PENDING
         )
-        url = reverse('reservation-confirm', args=[reservation.id])
+        url = reverse('reservations:reservation-confirm', args=[reservation.id])
 
-        # Student cannot confirm
         self.client.force_authenticate(user=self.student)
-        response = self.client.put(url)
+        response = self.client.patch(url)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-        # Admin can confirm
         self.client.force_authenticate(user=self.admin)
-        response = self.client.put(url)
+        response = self.client.patch(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         reservation.refresh_from_db()
         self.assertEqual(reservation.status, ReservationStatus.CONFIRMED)
+
+    def test_partial_update_not_allowed(self):
+        reservation = Reservation.objects.create(
+            space=self.space,
+            created_by=self.student,
+            start_at=self.future_start,
+            end_at=self.future_end
+        )
+        url = reverse('reservations:reservation-detail', args=[reservation.id])
+
+        self.client.force_authenticate(user=self.student)
+        data = {"header": "Updated Header"}
+        response = self.client.patch(url, data)
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def test_cancel_bad_request(self):
+        reservation = Reservation.objects.create(
+            space=self.space,
+            created_by=self.student,
+            start_at=self.future_start,
+            end_at=self.future_end,
+            status=ReservationStatus.CANCELLED
+        )
+        url = reverse('reservations:reservation-cancel', args=[reservation.id])
+
+        self.client.force_authenticate(user=self.student)
+        response = self.client.patch(url)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_action_me(self):
+        Reservation.objects.create(
+            space=self.space,
+            created_by=self.student,
+            start_at=self.future_start,
+            end_at=self.future_end
+        )
+        Reservation.objects.create(
+            space=self.space,
+            created_by=self.admin,
+            start_at=self.future_start,
+            end_at=self.future_end
+        )
+
+        url = reverse('reservations:reservation-me')
+
+        self.client.force_authenticate(user=self.student)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        if 'results' in response.data:
+            self.assertEqual(len(response.data['results']), 1)
+        else:
+            self.assertEqual(len(response.data), 1)
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        if 'results' in response.data:
+            self.assertEqual(len(response.data['results']), 1)
+        else:
+            self.assertEqual(len(response.data), 1) 
+
+    def test_action_me_paginated(self):
+        old_pagination_class = ReservationViewSet.pagination_class
+        ReservationViewSet.pagination_class = OnePerPagePagination
+
+        try:
+            Reservation.objects.create(
+                space=self.space,
+                created_by=self.student,
+                start_at=self.future_start,
+                end_at=self.future_end,
+            )
+            Reservation.objects.create(
+                space=self.space,
+                created_by=self.student,
+                start_at=self.future_start + timedelta(hours=1),
+                end_at=self.future_end + timedelta(hours=1),
+            )
+
+            url = reverse("reservations:reservation-me")
+            self.client.force_authenticate(user=self.student)
+
+            response = self.client.get(url)
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+            self.assertIn("results", response.data)
+            self.assertEqual(response.data["count"], 2)
+            self.assertEqual(len(response.data["results"]), 1) 
+
+        finally:
+            ReservationViewSet.pagination_class = old_pagination_class

@@ -14,8 +14,8 @@ class ReservationModelTest(TestCase):
         self.building = Building.objects.create(name="Test Building", address="123 Test St")
         self.space = Space.objects.create(name="Test Room", building=self.building, capacity=10)
 
-        self.student = User.objects.create_user(username="student", email="student@test.com", password="password")
-        self.admin = User.objects.create_user(username="admin", email="admin@test.com", password="password",
+        self.student = User.objects.create_user(username="student", email="student@test.com", date_of_birth=timezone.now(), password="password")
+        self.admin = User.objects.create_user(username="admin", email="admin@test.com", date_of_birth=timezone.now(), password="password",
                                               is_staff=True)
 
         self.future_start = timezone.now() + timedelta(days=1)
@@ -39,14 +39,13 @@ class ReservationModelTest(TestCase):
             space=self.space,
             created_by=self.student,
             start_at=self.future_end,
-            end_at=self.future_start,  # End before start
+            end_at=self.future_start,  
             header="Invalid Date"
         )
         with self.assertRaises(ValidationError):
             reservation.full_clean()
 
     def test_overlapping_reservation(self):
-        # Create a confirmed reservation
         Reservation.objects.create(
             space=self.space,
             created_by=self.student,
@@ -55,16 +54,14 @@ class ReservationModelTest(TestCase):
             status=ReservationStatus.CONFIRMED
         )
 
-        # Try to create another overlapping reservation
         reservation = Reservation(
             space=self.space,
             created_by=self.admin,
             start_at=self.future_start,
             end_at=self.future_end,
-            status=ReservationStatus.CONFIRMED  # Simulate trying to confirm it directly or check clean logic
+            status=ReservationStatus.CONFIRMED  
         )
 
-        # clean() checks for overlapping confirmed reservations
         with self.assertRaises(ValidationError):
             reservation.clean()
 
@@ -77,14 +74,11 @@ class ReservationModelTest(TestCase):
             status=ReservationStatus.PENDING
         )
 
-        # Owner can cancel
         self.assertTrue(reservation.can_be_cancelled_by(self.student))
 
-        # Admin can cancel
         self.assertTrue(reservation.can_be_cancelled_by(self.admin))
 
-        # Random user cannot cancel
-        other_user = User.objects.create_user(username="other", email="other@test.com", password="password")
+        other_user = User.objects.create_user(username="other", email="other@test.com", date_of_birth=timezone.now(), password="password")
         self.assertFalse(reservation.can_be_cancelled_by(other_user))
 
     def test_cancel_method(self):
@@ -99,7 +93,6 @@ class ReservationModelTest(TestCase):
         reservation.cancel(self.student)
         self.assertEqual(reservation.status, ReservationStatus.CANCELLED)
 
-        # Cannot cancel already cancelled
         self.assertFalse(reservation.can_be_cancelled_by(self.student))
 
     def test_confirm_method(self):
@@ -111,10 +104,28 @@ class ReservationModelTest(TestCase):
             status=ReservationStatus.PENDING
         )
 
-        # Student cannot confirm
         with self.assertRaises(ValidationError):
             reservation.confirm(self.student)
 
-        # Admin can confirm
         reservation.confirm(self.admin)
         self.assertEqual(reservation.status, ReservationStatus.CONFIRMED)
+
+    def test_cannot_create_reservation_in_the_past(self):
+        past_start = timezone.now() - timedelta(hours=1)
+        future_end = timezone.now() + timedelta(hours=1)
+
+        reservation = Reservation(
+            space=self.space,
+            created_by=self.student,
+            start_at=past_start,   
+            end_at=future_end,   
+            header="Past start reservation",
+        )
+
+        with self.assertRaises(ValidationError) as ctx:
+            reservation.full_clean()
+
+        self.assertIn(
+            "You cannot create reservations in the past.",
+            str(ctx.exception),
+        )

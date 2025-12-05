@@ -22,7 +22,7 @@ class ReservationViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
-    @swagger_auto_schema(auto_schema=None)  # 👈 Nasconde da Swagger
+    @swagger_auto_schema(auto_schema=None) 
     def partial_update(self, request, *args, **kwargs):
         return Response(
             {"detail": "PATCH non disponibile su questa risorsa."},

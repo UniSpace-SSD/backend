@@ -2,6 +2,7 @@ from django.test import TestCase, RequestFactory
 from django.contrib.auth import get_user_model
 from spaces.permissions import IsAdminOrReadOnly
 from rest_framework.permissions import SAFE_METHODS
+from django.utils import timezone
 
 User = get_user_model()
 
@@ -9,8 +10,8 @@ class IsAdminOrReadOnlyTest(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
         self.permission = IsAdminOrReadOnly()
-        self.student = User.objects.create_user(username="student", email="student@test.com", password="password")
-        self.admin = User.objects.create_user(username="admin", email="admin@test.com", password="password",
+        self.student = User.objects.create_user(username="student", email="student@test.com", date_of_birth=timezone.now(), password="password")
+        self.admin = User.objects.create_user(username="admin", email="admin@test.com", date_of_birth=timezone.now(), password="password",
                                               is_staff=True)
 
     def test_read_only_access(self):
