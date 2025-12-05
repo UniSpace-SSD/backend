@@ -4,7 +4,7 @@ from spaces.models import Building, Equipment, Space, SpaceType
 
 class SpaceModelTest(TestCase):
     def setUp(self):
-        self.building = Building.objects.create(name="Test Building", address="123 Test St")
+        self.building = Building.objects.create(name="Test Building", address="Via 123 Test")
         self.equipment = Equipment.objects.create(name="Projector", description="HD Projector")
 
     def test_create_valid_space(self):
@@ -53,12 +53,3 @@ class SpaceModelTest(TestCase):
         self.assertEqual(str(self.building), f"{self.building.id} - Test Building")
         self.assertEqual(str(self.equipment), "Projector")
 
-    def test_type_checking(self):
-        # This depends on how typeguard is configured to run.
-        # If it's runtime checking on method calls, we can test it.
-        # But Django models might do some magic that bypasses direct calls or typeguard might not catch everything in tests without specific setup.
-        # However, we decorated __str__ and clean.
-
-        # Test clean with wrong type (if possible to pass wrong type to model field before clean?
-        # Django fields convert types usually. But let's try calling clean directly if we could mock something)
-        pass

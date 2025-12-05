@@ -4,7 +4,7 @@ from spaces.models import Building, SpaceType
 
 class SpaceSerializerTest(TestCase):
     def setUp(self):
-        self.building = Building.objects.create(name="Test Building", address="123 Test St")
+        self.building = Building.objects.create(name="Test Building", address="Via 123 Test")
 
     def test_valid_serializer(self):
         data = {

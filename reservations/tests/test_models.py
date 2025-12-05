@@ -11,8 +11,8 @@ User = get_user_model()
 
 class ReservationModelTest(TestCase):
     def setUp(self):
-        self.building = Building.objects.create(name="Test Building", address="123 Test St")
-        self.space = Space.objects.create(name="Test Room", building=self.building, capacity=10)
+        self.building = Building.objects.create(name="Test Building", address="Via 123 Test")
+        self.space = Space.objects.create(name="Test Space", building=self.building, capacity=10)
 
         self.student = User.objects.create_user(username="student", email="student@test.com", date_of_birth=timezone.now(), password="password")
         self.admin = User.objects.create_user(username="admin", email="admin@test.com", date_of_birth=timezone.now(), password="password",
@@ -49,15 +49,16 @@ class ReservationModelTest(TestCase):
         Reservation.objects.create(
             space=self.space,
             created_by=self.student,
-            start_at=self.future_start,
+            start_at=self.future_start, 
             end_at=self.future_end,
             status=ReservationStatus.CONFIRMED
         )
 
+        # New reservations with overlapping times
         reservation = Reservation(
             space=self.space,
             created_by=self.admin,
-            start_at=self.future_start,
+            start_at=self.future_start, 
             end_at=self.future_end,
             status=ReservationStatus.CONFIRMED  
         )
@@ -117,8 +118,8 @@ class ReservationModelTest(TestCase):
         reservation = Reservation(
             space=self.space,
             created_by=self.student,
-            start_at=past_start,   
-            end_at=future_end,   
+            start_at=past_start, # Invalid start time
+            end_at=future_end,  # Invalid end time
             header="Past start reservation",
         )
 
@@ -127,5 +128,22 @@ class ReservationModelTest(TestCase):
 
         self.assertIn(
             "You cannot create reservations in the past.",
+            str(ctx.exception),
+        )
+
+    def test_cannot_confirm_non_pending_reservation(self):
+        reservation = Reservation.objects.create(
+            space=self.space,
+            created_by=self.student,
+            start_at=self.future_start,
+            end_at=self.future_end,
+            status=ReservationStatus.CANCELLED  # Invalid: not pending
+        )
+
+        with self.assertRaises(ValidationError) as ctx:
+            reservation.confirm(self.admin)
+
+        self.assertIn(
+            "Only pending reservations can be confirmed.",
             str(ctx.exception),
         )

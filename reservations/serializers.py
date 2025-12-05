@@ -34,7 +34,6 @@ class ReservationSerializer(serializers.ModelSerializer):
             start = start or self.instance.start_at
             end = end or self.instance.end_at
 
-        # controllo overlapping "utente"
         user = self.context["request"].user
         if user.is_authenticated and start and end:
             qs = Reservation.objects.filter(

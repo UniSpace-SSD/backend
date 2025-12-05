@@ -21,11 +21,18 @@ class UserProfile(AbstractUser):
         super().clean()
         self.email = self.email.lower()
 
-        if self.date_of_birth >= timezone.now().date():
+        today = timezone.now().date()
+
+        if self.date_of_birth >= today:
             raise ValidationError({'date_of_birth': "Date of birth must be in the past."})
 
-        if self.date_of_birth < timezone.now().date().replace(year=timezone.now().date().year - 120):
+        # calcolo età
+        age = today.year - self.date_of_birth.year - (
+            (today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day)
+        )
+
+        if age > 120:
             raise ValidationError({'date_of_birth': "Date of birth is not realistic."})
 
-        if self.date_of_birth > timezone.now().date().replace(year=timezone.now().date().year + 14):
+        if age < 14:
             raise ValidationError({'date_of_birth': "User must be at least 14 years old."})

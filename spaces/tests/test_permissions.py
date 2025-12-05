@@ -15,24 +15,21 @@ class IsAdminOrReadOnlyTest(TestCase):
                                               is_staff=True)
 
     def test_read_only_access(self):
-        # Safe methods should be allowed for anyone
         for method in SAFE_METHODS:
             request = self.factory.generic(method, '/')
             request.user = self.student
             self.assertTrue(self.permission.has_permission(request, None))
 
-            request.user = None  # Anonymous
+            request.user = None  # Unauthenticated user
             self.assertTrue(self.permission.has_permission(request, None))
 
     def test_write_access_student(self):
-        # Unsafe methods should be denied for student
         for method in ["POST", "PUT", "DELETE"]:
             request = self.factory.generic(method, '/')
             request.user = self.student
             self.assertFalse(self.permission.has_permission(request, None))
 
     def test_write_access_admin(self):
-        # Unsafe methods should be allowed for admin
         for method in ["POST", "PUT", "DELETE"]:
             request = self.factory.generic(method, '/')
             request.user = self.admin

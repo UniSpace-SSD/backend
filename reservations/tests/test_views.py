@@ -7,9 +7,10 @@ from datetime import timedelta
 from reservations.models import Reservation, ReservationStatus
 from reservations.views import ReservationViewSet
 from spaces.models import Space, Building
-from django.test import override_settings
-from django.conf import settings
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.test import APIRequestFactory
+from django.contrib.auth.models import AnonymousUser
+from reservations.permissions import IsOwnerOrStaff
 
 User = get_user_model()
 
@@ -128,6 +129,7 @@ class ReservationViewSetTest(APITestCase):
         response = self.client.patch(url, data)
         self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
 
+    # Test cancelling an already cancelled reservation
     def test_cancel_bad_request(self):
         reservation = Reservation.objects.create(
             space=self.space,
@@ -204,3 +206,85 @@ class ReservationViewSetTest(APITestCase):
 
         finally:
             ReservationViewSet.pagination_class = old_pagination_class
+
+    def test_str_representation(self):
+        reservation = Reservation.objects.create(
+            space=self.space,
+            created_by=self.student,
+            start_at=self.future_start,
+            end_at=self.future_end,
+            header="Test Reservation"
+        )
+        expected_str = f"Test Reservation: {self.space} {self.future_start} - {self.future_end}"
+        self.assertEqual(str(reservation), expected_str)
+
+    def test_permission_denies_unauthenticated_user(self):
+        reservation = Reservation.objects.create(
+            space=self.space,
+            created_by=self.student,
+            start_at=self.future_start,
+            end_at=self.future_end,
+            status=ReservationStatus.PENDING,
+        )
+
+        permission = IsOwnerOrStaff()
+        factory = APIRequestFactory()
+        request = factory.get("/")
+        request.user = AnonymousUser()
+
+        self.assertFalse(permission.has_object_permission(request, None, reservation))
+
+    def test_permission_allows_staff(self):
+        reservation = Reservation.objects.create(
+            space=self.space,
+            created_by=self.student,
+            start_at=self.future_start,
+            end_at=self.future_end,
+            status=ReservationStatus.PENDING,
+        )
+
+        permission = IsOwnerOrStaff()
+        factory = APIRequestFactory()
+        request = factory.get("/")
+        request.user = self.admin  # is_staff=True nel tuo setUp
+
+        self.assertTrue(permission.has_object_permission(request, None, reservation))
+
+    def test_permission_allows_owner(self):
+        reservation = Reservation.objects.create(
+            space=self.space,
+            created_by=self.student,
+            start_at=self.future_start,
+            end_at=self.future_end,
+            status=ReservationStatus.PENDING,
+        )
+
+        permission = IsOwnerOrStaff()
+        factory = APIRequestFactory()
+        request = factory.get("/")
+        request.user = self.student  # owner
+
+        self.assertTrue(permission.has_object_permission(request, None, reservation))
+
+    def test_permission_denies_other_user(self):
+        other_user = User.objects.create_user(
+            username="other",
+            email="other@test.com",
+            date_of_birth=timezone.now(),
+            password="password",
+        )
+
+        reservation = Reservation.objects.create(
+            space=self.space,
+            created_by=self.student,
+            start_at=self.future_start,
+            end_at=self.future_end,
+            status=ReservationStatus.PENDING,
+        )
+
+        permission = IsOwnerOrStaff()
+        factory = APIRequestFactory()
+        request = factory.get("/")
+        request.user = other_user
+
+        self.assertFalse(permission.has_object_permission(request, None, reservation))
