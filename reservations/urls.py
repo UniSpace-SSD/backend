@@ -3,8 +3,8 @@ from rest_framework.routers import DefaultRouter
 from . import views
 
 router = DefaultRouter()
-router.register('reservations', views.ReservationViewSet, basename='reservation')
+router.register("reservations", views.ReservationViewSet, basename="reservation")
 
 urlpatterns = [
-    path('', include(router.urls)),
+    path("", include(router.urls)),
 ]

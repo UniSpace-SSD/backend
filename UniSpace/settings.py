@@ -50,7 +50,8 @@ INSTALLED_APPS = [
 
     'drf_yasg',
     'spaces.apps.SpacesConfig',
-    'reservations.apps.ReservationsConfig'
+    'reservations.apps.ReservationsConfig',
+    'userProfile.apps.UserprofileConfig'
 ]
 
 MIDDLEWARE = [
@@ -148,6 +149,16 @@ REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASS': 'rest_framework.schemas.openapi.AutoSchema'
 }
 
-ACCOUNT_SIGNUP_FIELDS = ['mail', 'username', 'password1', 'password2']
+AUTH_USER_MODEL = 'userProfile.UserProfile'
 
+REST_AUTH = {
+    'REGISTER_SERIALIZER': 'userProfile.serializers.CustomRegisterSerializer',
+    'LOGIN_SERIALIZER': 'dj_rest_auth.serializers.LoginSerializer',
+}
+
+ACCOUNT_AUTHENTICATION_METHOD = 'username_email' # Sia username che email vanno bene come login, entrami o uno dei due
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_UNIQUE_EMAIL = True
+ACCOUNT_USERNAME_REQUIRED = False            # Lo username non è obbligatorio nel form
+ACCOUNT_EMAIL_VERIFICATION = 'none'
 SITE_ID = 1

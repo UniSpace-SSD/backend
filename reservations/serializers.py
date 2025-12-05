@@ -26,16 +26,13 @@ class ReservationSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_by", "status", "created_at", "updated_at"]
 
-
     def validate(self, attrs):
         start = attrs.get("start_at")
         end = attrs.get("end_at")
 
-        if start and end and start >= end:
-            raise serializers.ValidationError("Start time must be before end time.")
-
-        if start and start < timezone.now():
-            raise serializers.ValidationError("You cannot create reservations in the past.")
+        if self.instance:
+            start = start or self.instance.start_at
+            end = end or self.instance.end_at
 
         # controllo overlapping "utente"
         user = self.context["request"].user
@@ -53,6 +50,7 @@ class ReservationSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     "You already have a reservation in this timeslot."
                 )
+
 
         return attrs
 

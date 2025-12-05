@@ -35,6 +35,10 @@ urlpatterns = [
         name='openapi-schema'
     ),
 
+    # Endpoint Auth
+    path('api/auth/', include('dj_rest_auth.urls')),                # Login, Logout, Password Reset
+    path('api/auth/registration/', include('dj_rest_auth.registration.urls')), # Registrazione
+
     path('api/', include('spaces.urls')),
     path('api/', include('reservations.urls')),     
 ]

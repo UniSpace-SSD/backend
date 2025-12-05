@@ -14,17 +14,17 @@ class ReservationStatus(models.TextChoices):
     REJECTED = "REJECTED", "Rejected"
     EXPIRED = "EXPIRED", "Expired"
 
-
+# TODO: Da aggiungere cancelled_at
 class Reservation(models.Model):
     id = models.UUIDField(default=uuid.uuid4, unique=True,
-        primary_key=True, editable=False)
+                          primary_key=True, editable=False)
 
     space = models.ForeignKey(
         Space,
         on_delete=models.CASCADE,
         related_name="reservations",
     )
-    
+
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -38,7 +38,7 @@ class Reservation(models.Model):
     )
 
     start_at = models.DateTimeField()
-    
+
     end_at = models.DateTimeField()
 
     status = models.CharField(
@@ -68,10 +68,14 @@ class Reservation(models.Model):
         if self.start_at >= self.end_at:
             raise ValidationError("Start time must be before end time.")
 
+        if self.start_at < timezone.now():
+            raise ValidationError("You cannot create reservations in the past.")
+
+
         # controllo overlapping sulla stessa resource
-        overlapping_qs = Reservation.objects.filter(
-        space=self.space,
-        status=ReservationStatus.CONFIRMED,   # solo confermate
+        overlapping_space_qs = Reservation.objects.filter(
+            space=self.space,
+            status=ReservationStatus.CONFIRMED,  # solo confermate
         ).exclude(
             pk=self.pk
         ).filter(
@@ -85,45 +89,32 @@ class Reservation(models.Model):
             )
         )
 
-        if overlapping_qs.exists():
+        if overlapping_space_qs.exists():
             raise ValidationError("Resource is already reserved in this timeslot.")
 
 
-    """"
     def can_be_cancelled_by(self, user) -> bool:
         if self.status not in [ReservationStatus.PENDING, ReservationStatus.CONFIRMED]:
-            raise ValidationError("Only pending or confirmed reservations can be cancelled.") # TODO: better exception
+            return False
 
-        try:
-            role = user.profile.role
-        except Profile.DoesNotExist:
-            raise ValidationError("User profile does not exist.") # TODO: better exception
-
-        if role in [UserRole.STUDENT or UserRole.TEACHER] and user == self.created_by:
+        if user.is_staff or user.is_superuser:
             return True
-        elif role in [UserRole.STAFF, UserRole.ADMIN]:
+
+        if user == self.created_by:
             return True
 
         return False
 
-    """
     def cancel(self, user):
-        #if not self.can_be_cancelled_by(user):
-        #    raise ValidationError("User is not allowed to cancel this reservation.")
+        if not self.can_be_cancelled_by(user):
+            raise ValidationError("User is not allowed to cancel this reservation.")
         self.status = ReservationStatus.CANCELLED
-
 
     def confirm(self, approver):
         if self.status != ReservationStatus.PENDING:
             raise ValidationError("Only pending reservations can be confirmed.")
 
-        """
-        try:
-            role = approver.profile.role
-        except Profile.DoesNotExist:
-            raise ValidationError("User profile does not exist.") # TODO: better exception
+        if not (approver.is_staff or approver.is_superuser):
+            raise ValidationError("Only admins can confirm reservations.")
 
-        if role != UserRole.ADMIN:
-            raise ValidationError("Only admins can confirm reservations.") # TODO: better exception
-        """
         self.status = ReservationStatus.CONFIRMED

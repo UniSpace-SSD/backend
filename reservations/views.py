@@ -1,23 +1,16 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from drf_yasg.utils import swagger_auto_schema
 
 from .models import Reservation
 from .serializers import ReservationSerializer
-
-
-class IsOwnerOrStaff(permissions.BasePermission):
-    def has_object_permission(self, request, obj: Reservation):
-        if not request.user.is_authenticated:
-            return False
-        if request.user.is_staff:
-            return True
-        return obj.created_by_id == request.user.id
-
+from .permissions import IsOwnerOrStaff
 
 class ReservationViewSet(viewsets.ModelViewSet):
     serializer_class = ReservationSerializer
     permission_classes = [permissions.IsAuthenticated, IsOwnerOrStaff]
+    http_method_names = ["get", "post", "put", "patch"]
 
     def get_queryset(self):
         user = self.request.user
@@ -29,8 +22,14 @@ class ReservationViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
+    @swagger_auto_schema(auto_schema=None)  # 👈 Nasconde da Swagger
+    def partial_update(self, request, *args, **kwargs):
+        return Response(
+            {"detail": "PATCH non disponibile su questa risorsa."},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED,
+        )
 
-    @action(detail=True, methods=["put"])
+    @action(detail=True, methods=["patch"])
     def cancel(self, request, pk=None):
         reservation = self.get_object()
         try:
@@ -43,7 +42,7 @@ class ReservationViewSet(viewsets.ModelViewSet):
         reservation.save()
         return Response(self.get_serializer(reservation).data)
 
-    @action(detail=True, methods=["put"])
+    @action(detail=True, methods=["patch"])
     def confirm(self, request, pk=None):
         reservation = self.get_object()
         try:
