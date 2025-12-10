@@ -11,8 +11,10 @@ class UserProfile(AbstractUser):
     )
 
     email = models.EmailField(unique=True, verbose_name="Email", error_messages={"unique": "Email already used"})
-    date_of_birth = models.DateField(null=True, verbose_name="Data di nascita")
+    date_of_birth = models.DateField(null=True, blank=True, verbose_name="Data di nascita")
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='student', verbose_name="Ruolo")
+
+    REQUIRED_FIELDS = ['email', 'first_name', 'last_name', 'date_of_birth', 'role']
 
     def __str__(self):
         return self.username
@@ -20,6 +22,9 @@ class UserProfile(AbstractUser):
     def clean(self):
         super().clean()
         self.email = self.email.lower()
+
+        if self.date_of_birth is None:
+            return
 
         today = timezone.now().date()
 
@@ -35,3 +40,6 @@ class UserProfile(AbstractUser):
 
         if age < 14:
             raise ValidationError({'date_of_birth': "User must be at least 14 years old."})
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
