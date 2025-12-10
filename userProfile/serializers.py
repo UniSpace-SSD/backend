@@ -29,3 +29,10 @@ class CustomRegisterSerializer(RegisterSerializer):
         user.role = cleaned_data.get('role')
         user.save()
         return user
+    
+
+class CustomUserDetailsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        fields = ('pk', 'username', 'first_name', 'last_name', 'email', 'date_of_birth', 'role')
+        read_only_fields = ('email',)

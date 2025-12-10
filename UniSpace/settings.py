@@ -194,9 +194,10 @@ REST_AUTH = {
     'SESSION_LOGIN': True,  # Permette login con sessioni
     'REGISTER_SERIALIZER': 'userProfile.serializers.CustomRegisterSerializer',
     'LOGIN_SERIALIZER': 'dj_rest_auth.serializers.LoginSerializer',
+    'USER_DETAILS_SERIALIZER': 'userProfile.serializers.CustomUserDetailsSerializer',
 }
 
-ACCOUNT_AUTHENTICATION_METHOD = 'username_email' # Sia username che email vanno bene come login, entrami o uno dei due
+ACCOUNT_AUTHENTICATION_METHOD = 'username_email' # Sia username che email per login
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_USERNAME_REQUIRED = False            # Lo username non è obbligatorio nel form
