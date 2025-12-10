@@ -26,7 +26,6 @@ class UserProfile(AbstractUser):
         if self.date_of_birth >= today:
             raise ValidationError({'date_of_birth': "Date of birth must be in the past."})
 
-        # calcolo età
         age = today.year - self.date_of_birth.year - (
             (today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day)
         )

@@ -11,6 +11,9 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import logging
+import sys
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -25,7 +28,12 @@ SECRET_KEY = 'django-insecure-#h_t+5%_!^+@!6igl-g$qgma_in1utok574xv-!un18%h$zg1i
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    ".localhost",
+    "127.0.0.1",
+    "0.0.0.0",
+    "[::1]"
+]
 
 
 # Application definition
@@ -62,7 +70,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'allauth.account.middleware.AccountMiddleware'
+    'allauth.account.middleware.AccountMiddleware',
+    'request_logging.middleware.LoggingMiddleware'
 ]
 
 ROOT_URLCONF = 'UniSpace.urls'
@@ -144,10 +153,15 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.TokenAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAdminUser',
+        'rest_framework.permissions.AllowAny',  # così login/registrazione funzionano
     ],
-    'DEFAULT_RENDERER_CLASS': 'rest_framework.schemas.openapi.AutoSchema'
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer',
+    ],
+    'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.openapi.AutoSchema',
 }
+
 
 AUTH_USER_MODEL = 'userProfile.UserProfile'
 
@@ -162,3 +176,4 @@ ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_USERNAME_REQUIRED = False            # Lo username non è obbligatorio nel form
 ACCOUNT_EMAIL_VERIFICATION = 'none'
 SITE_ID = 1
+
