@@ -25,6 +25,21 @@ SECRET_KEY = 'django-insecure-#h_t+5%_!^+@!6igl-g$qgma_in1utok574xv-!un18%h$zg1i
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+
+# CORS Configuration
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+CORS_ALLOW_CREDENTIALS = True
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+
 ALLOWED_HOSTS = []
 
 
@@ -37,6 +52,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
     'django.contrib.sites',
 
     'rest_framework',
@@ -55,6 +71,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -138,6 +155,13 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+SESSION_COOKIE_SAMESITE = 'Lax'  # 'None' se cross-site
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SECURE = False  # True solo per HTTPS
+CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_HTTPONLY = False  # Deve essere False per poter leggere il token via JS
+CSRF_COOKIE_SECURE = False  # True solo per HTTPS
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
@@ -152,6 +176,8 @@ REST_FRAMEWORK = {
 AUTH_USER_MODEL = 'userProfile.UserProfile'
 
 REST_AUTH = {
+    'USE_JWT': False,  # Disabilita JWT
+    'SESSION_LOGIN': True,  # Permette login con sessioni
     'REGISTER_SERIALIZER': 'userProfile.serializers.CustomRegisterSerializer',
     'LOGIN_SERIALIZER': 'dj_rest_auth.serializers.LoginSerializer',
 }
@@ -161,4 +187,5 @@ ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_USERNAME_REQUIRED = False            # Lo username non è obbligatorio nel form
 ACCOUNT_EMAIL_VERIFICATION = 'none'
+ACCOUNT_SESSION_REMEMBER = True
 SITE_ID = 1
