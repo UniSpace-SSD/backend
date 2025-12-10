@@ -1,5 +1,4 @@
 from rest_framework import serializers
-from django.utils import timezone
 from .models import Reservation, ReservationStatus
 from spaces.models import Space
 
@@ -27,14 +26,38 @@ class ReservationSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_by", "status", "created_at", "updated_at"]
 
     def validate(self, attrs):
+        request = self.context["request"]
+        user = request.user
+
         start = attrs.get("start_at")
         end = attrs.get("end_at")
+        space = attrs.get("space")
 
+        # In update, completa con i valori esistenti se mancanti
         if self.instance:
             start = start or self.instance.start_at
             end = end or self.instance.end_at
+            space = space or self.instance.space
 
-        user = self.context["request"].user
+        # Admin NON possono creare nuove reservation
+        if not self.instance and (user.is_staff or user.is_superuser):
+            raise serializers.ValidationError(
+                {"detail": "Admins are not allowed to create reservations."}
+            )
+
+        # Studente → prenotazione solo nello stesso giorno
+        if getattr(user, "role", None) == "student" and start and end:
+            if start.date() != end.date():
+                raise serializers.ValidationError(
+                    {"detail": "Students can only create reservations within the same day."}
+                )
+
+        # Controllo sul gruppo (professore) – per il futuro
+        # if getattr(user, "role", None) == "professor" and space is not None:
+        #     ...
+        #     pass
+
+        # Controllo overlapping per lo stesso utente
         if user.is_authenticated and start and end:
             qs = Reservation.objects.filter(
                 created_by=user,
@@ -47,9 +70,8 @@ class ReservationSerializer(serializers.ModelSerializer):
                 qs = qs.exclude(pk=self.instance.pk)
             if qs.exists():
                 raise serializers.ValidationError(
-                    "You already have a reservation in this timeslot."
+                    {"detail": "You already have a reservation in this timeslot."}
                 )
-
 
         return attrs
 

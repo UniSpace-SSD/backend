@@ -37,8 +37,8 @@ class UserProfileModelTest(TestCase):
         with self.assertRaises(ValidationError) as ctx:
             user.full_clean()
 
-        self.assertIn("date_of_birth", ctx.exception.error_dict)
-        messages = [e.message for e in ctx.exception.error_dict["date_of_birth"]]
+        self.assertIn("detail", ctx.exception.error_dict)
+        messages = [e.message for e in ctx.exception.error_dict["detail"]]
         self.assertIn("Date of birth must be in the past.", messages)
 
     def test_date_of_birth_not_unrealistically_old(self):

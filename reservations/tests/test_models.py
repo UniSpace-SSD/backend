@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from datetime import timedelta
 from reservations.models import Reservation, ReservationStatus
 from spaces.models import Space, Building
+from dateutil.relativedelta import relativedelta
 
 User = get_user_model()
 
@@ -14,8 +15,8 @@ class ReservationModelTest(TestCase):
         self.building = Building.objects.create(name="Test Building", address="Via 123 Test")
         self.space = Space.objects.create(name="Test Space", building=self.building, capacity=10)
 
-        self.student = User.objects.create_user(username="student", email="student@test.com", date_of_birth=timezone.now(), password="password")
-        self.admin = User.objects.create_user(username="admin", email="admin@test.com", date_of_birth=timezone.now(), password="password",
+        self.student = User.objects.create_user(username="student", email="student@test.com", date_of_birth=timezone.now().date() - relativedelta(years=18), password="password")
+        self.admin = User.objects.create_user(username="admin", email="admin@test.com", date_of_birth=timezone.now().date() - relativedelta(years=18), password="password",
                                               is_staff=True)
 
         self.future_start = timezone.now() + timedelta(days=1)
@@ -79,7 +80,7 @@ class ReservationModelTest(TestCase):
 
         self.assertTrue(reservation.can_be_cancelled_by(self.admin))
 
-        other_user = User.objects.create_user(username="other", email="other@test.com", date_of_birth=timezone.now(), password="password")
+        other_user = User.objects.create_user(username="other", email="other@test.com", date_of_birth=timezone.now().date() - relativedelta(years=18), password="password")
         self.assertFalse(reservation.can_be_cancelled_by(other_user))
 
     def test_cancel_method(self):

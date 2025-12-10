@@ -5,6 +5,9 @@ from django.contrib.auth import get_user_model
 from spaces.models import Building, Space, SpaceType
 from django.utils import timezone
 
+from dateutil.relativedelta import relativedelta
+
+
 User = get_user_model()
 
 class SpaceViewSetTest(APITestCase):
@@ -12,8 +15,8 @@ class SpaceViewSetTest(APITestCase):
         self.building = Building.objects.create(name="Test Building", address="Via 123 Test")
         self.space = Space.objects.create(name="Test Space", building=self.building, capacity=10)
 
-        self.student = User.objects.create_user(username="student", email="student@test.com", date_of_birth=timezone.now(), password="password")
-        self.admin = User.objects.create_user(username="admin", email="admin@test.com", date_of_birth=timezone.now(), password="password",
+        self.student = User.objects.create_user(username="student", email="student@test.com", date_of_birth=timezone.now().date() - relativedelta(years=18), password="password")
+        self.admin = User.objects.create_user(username="admin", email="admin@test.com", date_of_birth=timezone.now().date() - relativedelta(years=18), password="password",
                                               is_staff=True)
 
         self.list_url = reverse('spaces:space-list')

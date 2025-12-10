@@ -12,6 +12,9 @@ from rest_framework.test import APIRequestFactory
 from django.contrib.auth.models import AnonymousUser
 from reservations.permissions import IsOwnerOrStaff
 
+from dateutil.relativedelta import relativedelta
+
+
 User = get_user_model()
 
 
@@ -24,8 +27,8 @@ class ReservationViewSetTest(APITestCase):
         self.building = Building.objects.create(name="Test Building", address="Via 123 Test")
         self.space = Space.objects.create(name="Test Space", building=self.building, capacity=10)
 
-        self.student = User.objects.create_user(username="student", email="student@test.com", date_of_birth=timezone.now(), password="password")
-        self.admin = User.objects.create_user(username="admin", email="admin@test.com", date_of_birth=timezone.now(), password="password",
+        self.student = User.objects.create_user(username="student", email="student@test.com", date_of_birth=timezone.now().date() - relativedelta(years=18), password="password")
+        self.admin = User.objects.create_user(username="admin", email="admin@test.com", date_of_birth=timezone.now().date() - relativedelta(years=18), password="password",
                                               is_staff=True)
 
         self.future_start = timezone.now() + timedelta(days=1)
@@ -64,7 +67,7 @@ class ReservationViewSetTest(APITestCase):
         else:
             self.assertEqual(len(response.data), 1)
 
-        other_user = User.objects.create_user(username="other", email="other@test.com", date_of_birth=timezone.now(), password="password")
+        other_user = User.objects.create_user(username="other", email="other@test.com", date_of_birth=timezone.now().date() - relativedelta(years=18), password="password")
         self.client.force_authenticate(user=other_user)
         response = self.client.get(self.list_url)
         if 'results' in response.data:
@@ -270,7 +273,7 @@ class ReservationViewSetTest(APITestCase):
         other_user = User.objects.create_user(
             username="other",
             email="other@test.com",
-            date_of_birth=timezone.now(),
+            date_of_birth=timezone.now().date() - relativedelta(years=18),
             password="password",
         )
 

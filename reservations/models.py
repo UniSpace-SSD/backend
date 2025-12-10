@@ -66,10 +66,14 @@ class Reservation(models.Model):
         super().clean()
 
         if self.start_at >= self.end_at:
-            raise ValidationError("Start time must be before end time.")
+            raise ValidationError(
+                {"detail": "EndStart time must be before end time."}
+            )
 
         if self.start_at < timezone.now():
-            raise ValidationError("You cannot create reservations in the past.")
+            raise ValidationError(
+                {"detail": "You cannot create reservations in the past."}
+            )
 
 
         # controllo overlapping sulla stessa resource
@@ -90,7 +94,9 @@ class Reservation(models.Model):
         )
 
         if overlapping_space_qs.exists():
-            raise ValidationError("Resource is already reserved in this timeslot.")
+            raise ValidationError(
+                {"detail": "Resource is already reserved in this timeslot."}
+            )
 
 
     def can_be_cancelled_by(self, user) -> bool:
@@ -107,14 +113,20 @@ class Reservation(models.Model):
 
     def cancel(self, user):
         if not self.can_be_cancelled_by(user):
-            raise ValidationError("User is not allowed to cancel this reservation.")
+            raise ValidationError(
+                {"detail": "User is not allowed to cancel this reservation."}
+            )
         self.status = ReservationStatus.CANCELLED
 
     def confirm(self, approver):
         if self.status != ReservationStatus.PENDING:
-            raise ValidationError("Only pending reservations can be confirmed.")
+            raise ValidationError(
+                {"detail": "Only pending reservations can be confirmed."}
+            )
 
         if not (approver.is_staff or approver.is_superuser):
-            raise ValidationError("Only admins can confirm reservations.")
+            raise ValidationError(
+                {"detail": "Only admins can confirm reservations."}
+            )
 
         self.status = ReservationStatus.CONFIRMED

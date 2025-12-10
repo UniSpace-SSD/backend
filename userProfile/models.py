@@ -29,17 +29,18 @@ class UserProfile(AbstractUser):
         today = timezone.now().date()
 
         if self.date_of_birth >= today:
-            raise ValidationError({'date_of_birth': "Date of birth must be in the past."})
+            raise ValidationError({'detail': "Date of birth must be in the past."})
 
         age = today.year - self.date_of_birth.year - (
             (today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day)
         )
 
         if age > 120:
-            raise ValidationError({'date_of_birth': "Date of birth is not realistic."})
+            raise ValidationError({'detail': "Date of birth is not realistic."})
 
         if age < 14:
-            raise ValidationError({'date_of_birth': "User must be at least 14 years old."})
+            raise ValidationError({'detail': "User must be at least 14 years old."})
+    
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
