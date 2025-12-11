@@ -1,3 +1,4 @@
+from spaces.models import Departments
 from rest_framework import serializers
 from dj_rest_auth.registration.serializers import RegisterSerializer
 from .models import UserProfile
@@ -8,6 +9,7 @@ class CustomRegisterSerializer(RegisterSerializer):
     date_of_birth = serializers.DateField(required=True)
     role = serializers.ChoiceField(choices=UserProfile.ROLE_CHOICES, required=True)
     email = serializers.EmailField(required=True)
+    department = serializers.ChoiceField(choices=Departments, required=True)
 
     def get_cleaned_data(self):
         data = super().get_cleaned_data()
@@ -17,6 +19,7 @@ class CustomRegisterSerializer(RegisterSerializer):
             'date_of_birth': self.validated_data.get('date_of_birth', ''),
             'role': self.validated_data.get('role', ''),
             'email': self.validated_data.get('email', ''),
+            'department': self.validated_data.get('department', ''),
         })
         return data
 
@@ -27,6 +30,8 @@ class CustomRegisterSerializer(RegisterSerializer):
         user.last_name = cleaned_data.get('last_name')
         user.date_of_birth = cleaned_data.get('date_of_birth')
         user.role = cleaned_data.get('role')
+        user.email = cleaned_data.get('email')
+        user.department = cleaned_data.get('department')
         user.save()
         return user
     
@@ -34,5 +39,5 @@ class CustomRegisterSerializer(RegisterSerializer):
 class CustomUserDetailsSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
-        fields = ('pk', 'username', 'first_name', 'last_name', 'email', 'date_of_birth', 'role', 'is_superuser')
+        fields = ('pk', 'username', 'first_name', 'last_name', 'email', 'date_of_birth', 'role', 'is_superuser', 'department')
         read_only_fields = ('email',)

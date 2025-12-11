@@ -1,7 +1,9 @@
+from spaces.models import Departments
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
+from .models import Departments
 
 
 class UserProfile(AbstractUser):
@@ -13,6 +15,7 @@ class UserProfile(AbstractUser):
     email = models.EmailField(unique=True, verbose_name="Email", error_messages={"unique": "Email already used"})
     date_of_birth = models.DateField(null=True, blank=True, verbose_name="Data di nascita")
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='student', verbose_name="Ruolo")
+    department = models.CharField(max_length=20, choices=Departments, default='DEMACS', verbose_name="Dipartimento")
 
     REQUIRED_FIELDS = ['email', 'first_name', 'last_name', 'date_of_birth', 'role']
 
