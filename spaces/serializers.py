@@ -5,7 +5,7 @@ from .models import Building, Equipment, Space, SpaceType
 class BuildingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Building
-        fields = ["id", "name", "address"]
+        fields = ["id", "name", "address", "department"]
 
 
 class EquipmentSerializer(serializers.ModelSerializer):
@@ -31,6 +31,8 @@ class SpaceSerializer(serializers.ModelSerializer):
         required=False,
     )
 
+    department = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = Space
         fields = [
@@ -43,4 +45,8 @@ class SpaceSerializer(serializers.ModelSerializer):
             "capacity",
             "equipments",
             "equipment_ids",
+            "department",
         ]
+
+    def get_department(self, obj):
+        return obj.building.department if obj.building else None

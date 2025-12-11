@@ -1,5 +1,4 @@
 import uuid
-
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from typeguard import typechecked
@@ -13,6 +12,14 @@ class SpaceType(models.TextChoices):
     LIBRARY = "LIBRARY", "Library"
 
 
+class Departments(models.TextChoices):
+    DEMACS = "DEMACS", "Dipartimento di Matematica e Informatica"
+    DIMES = "DIMES", "Dipartimenti di Ingegneria Informatica, Modellistica, Elettronica e Sistemistica"
+    DIMEG = "DIMEG", "Dipartimento di Ingegneria Meccanica, Energetica e Gestionale"
+    DIAM = "DIAM", "Dipartimento di Ingegneria dell'Ambiente"
+    DICES = "DICES", "Dipartimento di Culture, Educazione e Società"
+
+
 @typechecked
 class Building(models.Model):
     id = models.UUIDField(default=uuid.uuid4, unique=True,
@@ -21,6 +28,11 @@ class Building(models.Model):
     name = models.CharField(max_length=255)
 
     address = models.CharField(max_length=255)  
+
+    department = models.CharField(
+        choices=Departments.choices,
+        default=Departments.DEMACS,
+    )
 
     def __str__(self) -> str:
         return f"{self.id} - {self.name}" 
