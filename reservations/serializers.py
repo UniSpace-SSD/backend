@@ -50,6 +50,11 @@ class ReservationSerializer(serializers.ModelSerializer):
                 {"detail": "Admins are not allowed to create reservations."}
             )
 
+        if user.role == 'professor' and not (user.is_staff or user.is_superuser) and user.department != space.building.department:
+            raise serializers.ValidationError(
+                {"detail": "Can't visualize reservations for a space that not belongs to your department."},
+            )
+
         # Studente: prenotazione solo nello stesso giorno
         if getattr(user, "role", None) == "student" and start and end:
             if start.date() != end.date():

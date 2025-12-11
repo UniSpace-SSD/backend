@@ -73,25 +73,27 @@ class ReservationViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(qs, many=True)
         return Response(serializer.data)
 
-    # GET /api/{spaceId}/reservations
+    # GET /api/reservations/space/{space_id}
     @action(detail=False, methods=["get"], url_path="space/(?P<space_id>[^/.]+)")
     def by_space(self, request, space_id=None):
         user = request.user
-        
-        if not (user.role == UserProfile.Role.PROFESSOR or user.is_staff or user.is_superuser):
-            return Response(
-                {"detail": "Only professors and admins can access this endpoint."},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
+
         space = get_object_or_404(Space, id=space_id)
-        
+
         qs = Reservation.objects.filter(space=space).select_related("created_by", "space")
-        
-        # I professori possono vedere solo se lo spaceId corrisponde ad un building del loro gruppo
-        if user.role == 'professor' and not (user.is_staff or user.is_superuser):
-            # TODO: add group control
-            pass  
-        
+
+        # STAFF / SUPERUSER: vedono tutto
+        if user.is_staff or user.is_superuser:
+            pass  # nessun filtro aggiuntivo
+        # PROFESSOR: tutte le reservation dello spazio ma solo se del proprio dipartimento
+        elif getattr(user, "role", None) in (UserProfile.Role.PROFESSOR, "professor"):
+            if getattr(user, "department", None) != getattr(space.building, "department", None):
+                return Response(
+                    {"detail": "Can't visualize reservations for a space that does not belong to your department."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        else:
+            qs = qs.filter(created_by=user)
+
         serializer = self.get_serializer(qs, many=True)
         return Response(serializer.data)
