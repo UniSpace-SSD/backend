@@ -1,8 +1,8 @@
-import uuid
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
+import uuid
 
 from spaces.models import Space
 
@@ -14,7 +14,7 @@ class ReservationStatus(models.TextChoices):
     REJECTED = "REJECTED", "Rejected"
     EXPIRED = "EXPIRED", "Expired"
 
-# TODO: Da aggiungere cancelled_at
+
 class Reservation(models.Model):
     id = models.UUIDField(default=uuid.uuid4, unique=True,
                           primary_key=True, editable=False)
@@ -38,7 +38,6 @@ class Reservation(models.Model):
     )
 
     start_at = models.DateTimeField()
-
     end_at = models.DateTimeField()
 
     status = models.CharField(
@@ -46,17 +45,15 @@ class Reservation(models.Model):
         default=ReservationStatus.PENDING,
     )
 
-    created_at = models.DateTimeField(
-        auto_now_add=True
-    )
-    updated_at = models.DateTimeField(
-        auto_now=True
-    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    cancelled_at = models.DateTimeField(null=True, blank=True) 
 
     class Meta:
         ordering = ["start_at"]
         indexes = [
             models.Index(fields=["space", "start_at", "end_at"]),
+            models.Index(fields=["cancelled_at"]),
         ]
 
     def __str__(self) -> str:
@@ -67,7 +64,7 @@ class Reservation(models.Model):
 
         if self.start_at >= self.end_at:
             raise ValidationError(
-                {"detail": "EndStart time must be before end time."}
+                {"detail": "End time must be after start time."}
             )
 
         if self.start_at < timezone.now():
@@ -75,11 +72,10 @@ class Reservation(models.Model):
                 {"detail": "You cannot create reservations in the past."}
             )
 
-
         # controllo overlapping sulla stessa resource
         overlapping_space_qs = Reservation.objects.filter(
             space=self.space,
-            status=ReservationStatus.CONFIRMED,  # solo confermate
+            status=ReservationStatus.CONFIRMED, 
         ).exclude(
             pk=self.pk
         ).filter(
@@ -97,7 +93,6 @@ class Reservation(models.Model):
             raise ValidationError(
                 {"detail": "Resource is already reserved in this timeslot."}
             )
-
 
     def can_be_cancelled_by(self, user) -> bool:
         if self.status not in [ReservationStatus.PENDING, ReservationStatus.CONFIRMED]:
@@ -117,6 +112,7 @@ class Reservation(models.Model):
                 {"detail": "User is not allowed to cancel this reservation."}
             )
         self.status = ReservationStatus.CANCELLED
+        self.cancelled_at = timezone.now()  
 
     def confirm(self, approver):
         if self.status != ReservationStatus.PENDING:

@@ -2,10 +2,15 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from drf_yasg.utils import swagger_auto_schema
+from django.shortcuts import get_object_or_404
+
+from userProfile.models import UserProfile
 
 from .models import Reservation
 from .serializers import ReservationSerializer
 from .permissions import IsOwnerOrStaff
+from spaces.models import Space 
+
 
 class ReservationViewSet(viewsets.ModelViewSet):
     serializer_class = ReservationSerializer
@@ -14,7 +19,7 @@ class ReservationViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        qs = Reservation.objects.select_related("created_by")
+        qs = Reservation.objects.select_related("created_by", "space")
         if user.is_staff:
             return qs
         return qs.filter(created_by=user)
@@ -57,10 +62,36 @@ class ReservationViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"])
     def me(self, request):
+        user = request.user
+        if user.is_staff or user.is_superuser:
+            return Response(
+                {"detail": "Admin can't access their reservations."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         qs = self.get_queryset().filter(created_by=request.user)
-        page = self.paginate_queryset(qs)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(qs, many=True)
+        return Response(serializer.data)
+
+    # GET /api/{spaceId}/reservations
+    @action(detail=False, methods=["get"], url_path="space/(?P<space_id>[^/.]+)")
+    def by_space(self, request, space_id=None):
+        user = request.user
+        
+        if not (user.role == UserProfile.Role.PROFESSOR or user.is_staff or user.is_superuser):
+            return Response(
+                {"detail": "Only professors and admins can access this endpoint."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        space = get_object_or_404(Space, id=space_id)
+        
+        qs = Reservation.objects.filter(space=space).select_related("created_by", "space")
+        
+        # I professori possono vedere solo se lo spaceId corrisponde ad un building del loro gruppo
+        if user.role == 'professor' and not (user.is_staff or user.is_superuser):
+            # TODO: add group control
+            pass  
+        
         serializer = self.get_serializer(qs, many=True)
         return Response(serializer.data)

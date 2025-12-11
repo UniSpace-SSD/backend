@@ -20,10 +20,10 @@ class Building(models.Model):
 
     name = models.CharField(max_length=255)
 
-    address = models.CharField(max_length=255)  # TODO: VALUE OBJECT
+    address = models.CharField(max_length=255)  
 
     def __str__(self) -> str:
-        return f"{self.id} - {self.name}"  # TODO
+        return f"{self.id} - {self.name}" 
 
 
 # Equipment available in spaces
