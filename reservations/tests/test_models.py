@@ -148,3 +148,186 @@ class ReservationModelTest(TestCase):
             "Only pending reservations can be confirmed.",
             str(ctx.exception),
         )
+
+    def test_professor_can_cancel_same_department(self):
+        self.student.role = "student"
+        self.student.save()
+
+        professor = User.objects.create_user(
+            username="prof",
+            email="prof@test.com",
+            date_of_birth=timezone.now().date() - relativedelta(years=35),
+            password="password",
+        )
+        professor.role = "professor"
+        professor.department = self.building.department
+        professor.save()
+
+        reservation = Reservation.objects.create(
+            space=self.space,
+            created_by=self.student,
+            start_at=self.future_start,
+            end_at=self.future_end,
+            status=ReservationStatus.CONFIRMED,
+        )
+
+        self.assertTrue(reservation.can_be_cancelled_by(professor))
+
+    def test_professor_cannot_cancel_other_department(self):
+        professor = User.objects.create_user(
+            username="prof2",
+            email="prof2@test.com",
+            date_of_birth=timezone.now().date() - relativedelta(years=35),
+            password="password",
+        )
+        professor.role = "professor"
+        professor.department = "DIMES"
+        professor.save()
+
+        reservation = Reservation.objects.create(
+            space=self.space,
+            created_by=self.student,
+            start_at=self.future_start,
+            end_at=self.future_end,
+            status=ReservationStatus.CONFIRMED,
+        )
+
+        self.assertFalse(reservation.can_be_cancelled_by(professor))
+
+    def test_professor_confirm_same_department(self):
+        professor = User.objects.create_user(
+            username="prof3",
+            email="prof3@test.com",
+            date_of_birth=timezone.now().date() - relativedelta(years=35),
+            password="password",
+        )
+        professor.role = "professor"
+        professor.department = self.building.department
+        professor.save()
+
+        reservation = Reservation.objects.create(
+            space=self.space,
+            created_by=self.student,
+            start_at=self.future_start,
+            end_at=self.future_end,
+            status=ReservationStatus.PENDING,
+        )
+
+        reservation.confirm(professor)
+        self.assertEqual(reservation.status, ReservationStatus.CONFIRMED)
+
+    def test_professor_cannot_confirm_other_department(self):
+        professor = User.objects.create_user(
+            username="prof_other_dept",
+            email="prof_other@test.com",
+            date_of_birth=timezone.now().date() - relativedelta(years=35),
+            password="password",
+        )
+        professor.role = "professor"
+        professor.department = "DIMES"
+        professor.save()
+
+        reservation = Reservation.objects.create(
+            space=self.space,
+            created_by=self.student,
+            start_at=self.future_start,
+            end_at=self.future_end,
+            status=ReservationStatus.PENDING,
+        )
+
+        with self.assertRaises(ValidationError) as ctx:
+            reservation.confirm(professor)
+
+        self.assertIn(
+            "Professor cannot confirm reservations outside their department.",
+            str(ctx.exception),
+        )
+
+    def test_non_professor_non_admin_cannot_confirm(self):
+        regular_user = User.objects.create_user(
+            username="regular",
+            email="regular@test.com",
+            date_of_birth=timezone.now().date() - relativedelta(years=25),
+            password="password",
+        )
+
+        reservation = Reservation.objects.create(
+            space=self.space,
+            created_by=self.student,
+            start_at=self.future_start,
+            end_at=self.future_end,
+            status=ReservationStatus.PENDING,
+        )
+
+        with self.assertRaises(ValidationError) as ctx:
+            reservation.confirm(regular_user)
+
+        self.assertIn(
+            "Only admins or professors can confirm reservations.",
+            str(ctx.exception),
+        )
+
+    def test_can_be_cancelled_by_unauthenticated(self):
+        reservation = Reservation.objects.create(
+            space=self.space,
+            created_by=self.student,
+            start_at=self.future_start,
+            end_at=self.future_end,
+            status=ReservationStatus.PENDING,
+        )
+
+        self.assertFalse(reservation.can_be_cancelled_by(None))
+
+    def test_can_be_cancelled_by_non_authenticated_user_object(self):
+        from django.contrib.auth.models import AnonymousUser
+        
+        reservation = Reservation.objects.create(
+            space=self.space,
+            created_by=self.student,
+            start_at=self.future_start,
+            end_at=self.future_end,
+            status=ReservationStatus.PENDING,
+        )
+
+        anon = AnonymousUser()
+        self.assertFalse(reservation.can_be_cancelled_by(anon))
+
+    def test_overlapping_reservation_end_at_overlap(self):
+        # Prima reservation
+        Reservation.objects.create(
+            space=self.space,
+            created_by=self.student,
+            start_at=self.future_start,
+            end_at=self.future_end,
+            status=ReservationStatus.CONFIRMED
+        )
+
+        # Seconda reservation che inizia prima della fine della prima
+        overlapping_start = self.future_start + timedelta(minutes=30)
+        overlapping_end = self.future_end + timedelta(hours=1)
+
+        reservation = Reservation(
+            space=self.space,
+            created_by=self.admin,
+            start_at=overlapping_start,
+            end_at=overlapping_end,
+            status=ReservationStatus.CONFIRMED
+        )
+
+        with self.assertRaises(ValidationError):
+            reservation.clean()
+
+    def test_confirm_saves_status(self):
+        reservation = Reservation.objects.create(
+            space=self.space,
+            created_by=self.student,
+            start_at=self.future_start,
+            end_at=self.future_end,
+            status=ReservationStatus.PENDING,
+        )
+
+        # Conferma con admin
+        reservation.confirm(self.admin)
+        
+        # Verifica che lo status sia stato aggiornato nell'istanza
+        self.assertEqual(reservation.status, ReservationStatus.CONFIRMED)

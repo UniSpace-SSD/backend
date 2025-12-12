@@ -15,17 +15,14 @@ User = get_user_model()
 
 class ReservationSerializerTest(TestCase):
     def setUp(self):
-        # Un solo "now" per tutti i test, così evitiamo effetti strani di fuso/ora legale
         self.now = timezone.now().replace(minute=0, second=0, microsecond=0)
 
-        # Giorno futuro "base" per le prenotazioni
         self.base_day = (self.now + timedelta(days=1)).replace(
             hour=10, minute=0, second=0, microsecond=0
         )
         self.future_start = self.base_day
         self.future_end = self.future_start + timedelta(hours=1)
 
-        # Spazi / building
         self.building = Building.objects.create(
             name="Test Building",
             address="Via 123 Test",
@@ -36,7 +33,6 @@ class ReservationSerializerTest(TestCase):
             capacity=10,
         )
 
-        # Utente studente (default role = 'student')
         self.student = User.objects.create_user(
             username="student",
             email="student@test.com",
@@ -44,7 +40,6 @@ class ReservationSerializerTest(TestCase):
             password="password",
         )
 
-        # Utente admin/staff
         self.admin = User.objects.create_user(
             username="admin",
             email="admin@test.com",
@@ -53,7 +48,6 @@ class ReservationSerializerTest(TestCase):
             is_staff=True,
         )
 
-        # Utente professore
         self.professor = User.objects.create_user(
             username="professor",
             email="prof@test.com",
@@ -64,15 +58,12 @@ class ReservationSerializerTest(TestCase):
 
         self.factory = RequestFactory()
 
-    # ---------- Helper per creare request con user ----------
     def _get_request_for(self, user):
         req = self.factory.get("/")
         req.user = user
         return req
 
-    # ---------- Test base di validità ----------
     def test_student_valid_same_day_reservation(self):
-        """Lo studente può creare una reservation nello stesso giorno."""
         request = self._get_request_for(self.student)
         data = {
             "space": self.space.id,
@@ -83,9 +74,7 @@ class ReservationSerializerTest(TestCase):
         serializer = ReservationSerializer(data=data, context={"request": request})
         self.assertTrue(serializer.is_valid(), serializer.errors)
 
-    # ---------- Regola: studente solo stesso giorno ----------
     def test_student_cannot_cross_midnight(self):
-        """Lo studente NON può creare prenotazioni che superano la mezzanotte (giorni diversi)."""
         request = self._get_request_for(self.student)
 
         start = self.base_day.replace(hour=22)
@@ -106,7 +95,6 @@ class ReservationSerializerTest(TestCase):
             str(serializer.errors["detail"]),
         )
 
-    # ---------- Regola: admin non può creare reservations ----------
     def test_admin_cannot_create_reservation(self):
         request = self._get_request_for(self.admin)
 
@@ -125,9 +113,7 @@ class ReservationSerializerTest(TestCase):
             str(serializer.errors["detail"]),
         )
 
-    # ---------- Professore: può anche attraversare i giorni ----------
     def test_professor_can_cross_days(self):
-        """Il professore NON ha il vincolo 'stesso giorno'."""
         request = self._get_request_for(self.professor)
 
         start = self.base_day.replace(hour=22)
@@ -143,11 +129,8 @@ class ReservationSerializerTest(TestCase):
         serializer = ReservationSerializer(data=data, context={"request": request})
         self.assertTrue(serializer.is_valid(), serializer.errors)
 
-    # ---------- Overlapping per utente ----------
     def test_user_overlap(self):
-        """Se lo stesso utente ha già una reservation confermata nello slot, viene bloccato."""
 
-        # Reservation esistente (studente)
         Reservation.objects.create(
             space=self.space,
             created_by=self.student,
@@ -178,7 +161,6 @@ class ReservationSerializerTest(TestCase):
             str(serializer.errors["detail"]),
         )
 
-    # ---------- Partial update: usa le date esistenti se non passate ----------
     def test_partial_update_uses_instance_dates_and_excludes_itself(self):
         request = self._get_request_for(self.student)
 
@@ -237,14 +219,12 @@ class ReservationSerializerTest(TestCase):
         self.assertEqual(updated.start_at, self.future_start)
         self.assertEqual(updated.end_at, new_end)
 
-    # ---------- Nessuna data -> niente controllo di overlap ----------
     def test_validate_skips_overlap_when_missing_dates(self):
         request = self._get_request_for(self.student)
 
         data = {
             "space": self.space.id,
             "header": "No dates yet",
-            # start_at / end_at mancanti
         }
 
         serializer = ReservationSerializer(
@@ -254,3 +234,45 @@ class ReservationSerializerTest(TestCase):
         )
 
         self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_professor_cannot_create_reservation_wrong_department(self):
+        professor_other_dept = User.objects.create_user(
+            username="prof_other",
+            email="prof_other@test.com",
+            date_of_birth=timezone.localdate() - relativedelta(years=35),
+            password="password",
+            role="professor",
+        )
+        professor_other_dept.department = "DIMES"
+        professor_other_dept.save()
+
+        request = self._get_request_for(professor_other_dept)
+
+        data = {
+            "space": self.space.id,
+            "start_at": self.future_start,
+            "end_at": self.future_end,
+            "header": "Wrong Department",
+        }
+
+        serializer = ReservationSerializer(data=data, context={"request": request})
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("detail", serializer.errors)
+        self.assertIn(
+            "Can't visualize reservations for a space that not belongs to your department.",
+            str(serializer.errors["detail"]),
+        )
+
+    def test_create_method(self):
+        request = self._get_request_for(self.student)
+        data = {
+            "space": self.space.id,
+            "start_at": self.future_start,
+            "end_at": self.future_end,
+            "header": "Create Test",
+        }
+        serializer = ReservationSerializer(data=data, context={"request": request})
+        self.assertTrue(serializer.is_valid())
+        reservation = serializer.save(created_by=self.student)
+        self.assertIsNotNone(reservation.pk)
+        self.assertEqual(reservation.created_by, self.student)

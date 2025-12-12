@@ -3,6 +3,8 @@
 venv/
 env/
 
+build_mock.py
+troncate_db.py
 # Dipendenze di Poetry
 # poetry.lock
 

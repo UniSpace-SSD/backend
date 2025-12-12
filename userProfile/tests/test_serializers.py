@@ -21,6 +21,7 @@ class CustomRegisterSerializerTest(TestCase):
             "last_name": "Rossi",
             "date_of_birth": (timezone.now().date() - timedelta(days=365 * 20)),
             "role": "student",
+            "department": "DEMACS",
         }
 
         request = self.factory.post("/auth/register/", self.valid_data)
@@ -42,6 +43,7 @@ class CustomRegisterSerializerTest(TestCase):
         self.assertEqual(cleaned["date_of_birth"], self.valid_data["date_of_birth"])
         self.assertEqual(cleaned["role"], self.valid_data["role"])
         self.assertEqual(cleaned["email"], self.valid_data["email"])
+        self.assertEqual(cleaned["department"], self.valid_data["department"])
 
     def test_save_sets_custom_fields_on_user(self):
         serializer = CustomRegisterSerializer(

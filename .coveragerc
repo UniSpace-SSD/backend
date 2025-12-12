@@ -7,3 +7,6 @@ omit =
     */asgi.py
     */wsgi.py
     */tests/*
+
+    build_mock.py
+    troncate_db.py
