@@ -50,3 +50,7 @@ class SpaceSerializer(serializers.ModelSerializer):
 
     def get_department(self, obj):
         return obj.building.department if obj.building else None
+
+class DepartmentSerializer(serializers.Serializer):
+    code = serializers.CharField()
+    name = serializers.CharField()

@@ -1,11 +1,13 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from drf_yasg.utils import swagger_auto_schema
 from .models import Building, Equipment, Space, Departments
 from .serializers import (
     BuildingSerializer,
     EquipmentSerializer,
     SpaceSerializer,
+    DepartmentSerializer,
 )
 from .permissions import IsAdminOrReadOnly
 
@@ -29,16 +31,16 @@ class SpaceViewSet(viewsets.ModelViewSet):
     serializer_class = SpaceSerializer
     permission_classes = [IsAdminOrReadOnly]
     http_method_names = ["get", "post", "put", "delete"]
-    
+
     # GET /api/spaces/departments
+    @swagger_auto_schema(
+        operation_summary="List departments",
+        responses={200: DepartmentSerializer(many=True)},
+    )
     @action(detail=False, methods=["get"], url_path="departments")
     def departments(self, request):
-        departments_list = []
-        
-        for department_code, department_name in Departments.choices:
-            departments_list.append({
-                "code": department_code,
-                "name": department_name
-            })
-        
+        departments_list = [
+            {"code": code, "name": name}
+            for code, name in Departments.choices
+        ]
         return Response(departments_list, status=status.HTTP_200_OK)

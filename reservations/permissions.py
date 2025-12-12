@@ -7,4 +7,5 @@ class IsOwnerOrStaff(permissions.BasePermission):
             return False
         if request.user.is_staff:
             return True
-        return obj.created_by_id == request.user.id
+        return (obj.created_by_id == request.user.id or 
+               (obj.space.building.department == request.user.department and request.user.role == 'professor'))

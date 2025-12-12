@@ -4,8 +4,6 @@ from rest_framework.response import Response
 from drf_yasg.utils import swagger_auto_schema
 from django.shortcuts import get_object_or_404
 
-from userProfile.models import UserProfile
-
 from .models import Reservation
 from .serializers import ReservationSerializer
 from .permissions import IsOwnerOrStaff
@@ -18,10 +16,24 @@ class ReservationViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "put", "patch"]
 
     def get_queryset(self):
+        qs = Reservation.objects.select_related("created_by", "space", "space__building")
+
+        if getattr(self, "swagger_fake_view", False):
+            return qs.none()
+
         user = self.request.user
-        qs = Reservation.objects.select_related("created_by", "space")
-        if user.is_staff:
+        if not user.is_authenticated:
+            return qs.none()
+
+        # Admin/staff vedono tutto
+        if user.is_staff or user.is_superuser:
             return qs
+
+        # Professor: vede tutte le reservation degli spazi del suo dipartimento
+        if user.role == "professor":
+            return qs.filter(space__building__department=user.department)
+
+        # Studente: vede solo le sue
         return qs.filter(created_by=user)
 
     def perform_create(self, serializer):
@@ -30,7 +42,7 @@ class ReservationViewSet(viewsets.ModelViewSet):
     @swagger_auto_schema(auto_schema=None) 
     def partial_update(self, request, *args, **kwargs):
         return Response(
-            {"detail": "PATCH non disponibile su questa risorsa."},
+            {"detail": "Method not available on this resource."},
             status=status.HTTP_405_METHOD_NOT_ALLOWED,
         )
 
@@ -84,10 +96,10 @@ class ReservationViewSet(viewsets.ModelViewSet):
 
         # STAFF / SUPERUSER: vedono tutto
         if user.is_staff or user.is_superuser:
-            pass  # nessun filtro aggiuntivo
+            pass 
         # PROFESSOR: tutte le reservation dello spazio ma solo se del proprio dipartimento
-        elif getattr(user, "role", None) in (UserProfile.Role.PROFESSOR, "professor"):
-            if getattr(user, "department", None) != getattr(space.building, "department", None):
+        elif user.role == 'professor':
+            if user.department != space.building.department:
                 return Response(
                     {"detail": "Can't visualize reservations for a space that does not belong to your department."},
                     status=status.HTTP_403_FORBIDDEN,

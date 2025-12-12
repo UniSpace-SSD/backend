@@ -11,8 +11,6 @@ class ReservationStatus(models.TextChoices):
     PENDING = "PENDING", "Pending approval"
     CONFIRMED = "CONFIRMED", "Confirmed"
     CANCELLED = "CANCELLED", "Cancelled"
-    REJECTED = "REJECTED", "Rejected"
-    EXPIRED = "EXPIRED", "Expired"
 
 
 class Reservation(models.Model):
@@ -98,31 +96,45 @@ class Reservation(models.Model):
         if self.status not in [ReservationStatus.PENDING, ReservationStatus.CONFIRMED]:
             return False
 
+        if not user or not user.is_authenticated:
+            return False
+
+        # Admin
         if user.is_staff or user.is_superuser:
             return True
 
+        # Owner
         if user == self.created_by:
             return True
+
+        # Professor del dipartimento dello spazio
+        if getattr(user, "role", None) == "professor":
+            return getattr(user, "department", None) == self.space.building.department
 
         return False
 
     def cancel(self, user):
         if not self.can_be_cancelled_by(user):
-            raise ValidationError(
-                {"detail": "User is not allowed to cancel this reservation."}
-            )
+            raise ValidationError({"detail": "User is not allowed to cancel this reservation."})
+
         self.status = ReservationStatus.CANCELLED
-        self.cancelled_at = timezone.now()  
+        self.cancelled_at = timezone.now()
+        self.save(update_fields=["status", "cancelled_at", "updated_at"])
 
     def confirm(self, approver):
         if self.status != ReservationStatus.PENDING:
-            raise ValidationError(
-                {"detail": "Only pending reservations can be confirmed."}
-            )
+            raise ValidationError("Only pending reservations can be confirmed.")
 
-        if not (approver.is_staff or approver.is_superuser):
-            raise ValidationError(
-                {"detail": "Only admins can confirm reservations."}
-            )
+        # Admin sempre ok
+        if approver.is_staff or approver.is_superuser:
+            self.status = ReservationStatus.CONFIRMED
+            return
 
-        self.status = ReservationStatus.CONFIRMED
+        # Professor ok solo nel suo dipartimento
+        if getattr(approver, "role", None) == "professor":
+            if approver.department != self.space.building.department:
+                raise ValidationError("Professor cannot confirm reservations outside their department.")
+            self.status = ReservationStatus.CONFIRMED
+            return
+
+        raise ValidationError("Only admins or professors can confirm reservations.")
