@@ -29,9 +29,9 @@ class ReservationViewSet(viewsets.ModelViewSet):
         if user.is_staff or user.is_superuser:
             return qs
 
-        # Professor: vede tutte le reservation degli spazi del suo dipartimento
+        # Professor: vede tutte le reservation degli studenti degli spazi del suo dipartimento
         if user.role == "professor":
-            return qs.filter(space__building__department=user.department)
+            return qs.filter(space__building__department=user.department, created_by__role="student")
 
         # Studente: vede solo le sue
         return qs.filter(created_by=user)
