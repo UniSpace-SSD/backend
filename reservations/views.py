@@ -3,6 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from drf_yasg.utils import swagger_auto_schema
 from django.shortcuts import get_object_or_404
+from django.db.models import Q
 
 from .models import Reservation
 from .serializers import ReservationSerializer
@@ -31,7 +32,11 @@ class ReservationViewSet(viewsets.ModelViewSet):
 
         # Professor: vede tutte le reservation degli studenti degli spazi del suo dipartimento
         if user.role == "professor":
-            return qs.filter(space__building__department=user.department, created_by__role="student")
+            return qs.filter(
+                    space__building__department=user.department
+                ).filter(
+                    Q(created_by__role="student") | Q(created_by=user)
+                )
 
         # Studente: vede solo le sue
         return qs.filter(created_by=user)
