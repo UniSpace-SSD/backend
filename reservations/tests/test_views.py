@@ -38,16 +38,20 @@ class ReservationViewSetTest(APITestCase):
 
     def test_create_reservation(self):
         self.client.force_authenticate(user=self.student)
+
         data = {
-            "space": self.space.id,
-            "start_at": self.future_start,
-            "end_at": self.future_end,
-            "header": "API Reservation"
+            "space": str(self.space.id),
+            "start_at": self.future_start.isoformat(),
+            "end_at": self.future_end.isoformat(),
+            "header": "API Reservation",
         }
-        response = self.client.post(self.list_url, data)
+
+        response = self.client.post(self.list_url, data, format="json")
+
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(Reservation.objects.count(), 1)
         self.assertEqual(Reservation.objects.get().created_by, self.student)
+
 
     def test_list_reservations(self):
         Reservation.objects.create(
